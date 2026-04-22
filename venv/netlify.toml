@@ -1,0 +1,39 @@
+# AlgoVote - Netlify Configuration
+# Deploys the React frontend as a static JAMstack site.
+#
+# The blockchain backend runs entirely on Algorand TestNet —
+# there is no traditional server. This is the JAMstack architecture:
+# - JavaScript (React frontend)
+# - APIs (Algorand TestNet via algonode.cloud)
+# - Markup (static HTML built by Create React App)
+
+[build]
+  # Directory to run the build command from
+  base = "."
+
+  # Build command for Create React App
+  command = "npm run build"
+
+  # Directory that contains the built static files
+  publish = "build"
+
+[build.environment]
+  # Node version — CRA requires 14+
+  NODE_VERSION = "18"
+
+# ── Redirects ─────────────────────────────────────────────────────────────────
+# Required for React Router / SPA — all routes serve index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ── Headers ───────────────────────────────────────────────────────────────────
+# Security headers for production
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

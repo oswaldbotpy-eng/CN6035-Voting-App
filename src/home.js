@@ -21,11 +21,14 @@ const Title = styled.h1`
   margin-top: 80px;
 `;
 
-export default function MainContent() {
+export default function MainContent({ userAddress }) {
   const [showCandidate, setShowCandidate] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // ✅ NEW
+  const [hasVoted, setHasVoted] = useState(false);
 
   const client = new algosdk.Algodv2(
     CONSTANTS.algodToken,
@@ -81,18 +84,53 @@ export default function MainContent() {
     }
   };
 
+  // ✅ NEW: check if user already voted
+  const checkIfVoted = async (address) => {
+    try {
+      const accountInfo = await client.accountInformation(address).do();
+
+      const apps = accountInfo['apps-local-state'] || [];
+      const app = apps.find(a => a.id === CONSTANTS.APP_ID);
+
+      if (!app || !app['key-value']) {
+        setHasVoted(false);
+        return;
+      }
+
+      const votedKey = app['key-value'].find(
+        item => atob(item.key) === "voted"
+      );
+
+      setHasVoted(!!votedKey);
+
+    } catch (err) {
+      console.error("Vote check failed:", err);
+      setHasVoted(false);
+    }
+  };
+
   // Load on start
   useEffect(() => {
     fetchCandidates();
   }, []);
 
+  // ✅ NEW: run when wallet connects
+  useEffect(() => {
+    if (userAddress) {
+      checkIfVoted(userAddress);
+    }
+  }, [userAddress]);
+
   // 🗳️ Voting handler
   const handleVote = async (candidateName) => {
     console.log("Voting for:", candidateName);
 
-    // NOTE: keep voting logic in CandidateModal OR move to backend later
-    // For now, just refresh after vote
     await fetchCandidates();
+
+    // ✅ refresh vote status after voting
+    if (userAddress) {
+      await checkIfVoted(userAddress);
+    }
   };
 
   const candidateHandler = () => {
@@ -112,8 +150,12 @@ export default function MainContent() {
             <Title>Decentralised Voting</Title>
             <p>Vote for the right candidate!</p>
 
-            <Button onClick={candidateHandler}>
-              VOTE NOW
+            {/* ✅ Disable button if already voted */}
+            <Button 
+              onClick={candidateHandler}
+              disabled={hasVoted}
+            >
+              {hasVoted ? "ALREADY VOTED" : "VOTE NOW"}
             </Button>
 
             <Button
@@ -123,12 +165,13 @@ export default function MainContent() {
               RESULT
             </Button>
 
-            {/* ✅ Pass candidates + vote handler */}
+            {/* ✅ Pass hasVoted */}
             <CandidateModal
               show={showCandidate}
               onHide={() => setShowCandidate(false)}
               candidates={candidates}
               onVote={handleVote}
+              hasVoted={hasVoted}
             />
 
             <ResultModal
